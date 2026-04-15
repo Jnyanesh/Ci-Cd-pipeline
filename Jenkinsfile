@@ -7,8 +7,8 @@ pipeline {
     }
 
     environment {
-        DOCKER_USER  = 'jnyanesh' 
-        IMAGE_NAME   = 'ci-cd-pipeline-app'
+        DOCKER_USER  = 'jnyanesh1' 
+        IMAGE_NAME   = 'simple-ci-cd-pipeline-app'
         DOCKER_CREDS  = 'docker-hub-credentials' 
     }
 
