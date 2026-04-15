@@ -4,7 +4,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git 'https://github.com/Jnyanesh/Ci-Cd-pipeline.git'
+                git scm
             }
         }
         stage('Build Docker Image') {
