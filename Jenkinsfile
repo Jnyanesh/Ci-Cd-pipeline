@@ -33,6 +33,7 @@ pipeline {
         stage('Test') {
             steps {
                 script {
+                    sh "docker rm -f test-container || true"
                     sh "docker run -d --name test-container -p 5000:5000 ${DOCKER_USER}/${IMAGE_NAME}:${env.BUILD_ID}"
                     try {
                         // Health check: wait for Flask to boot
