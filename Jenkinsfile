@@ -1,30 +1,65 @@
 pipeline {
     agent any 
 
+    // This tells Jenkins to look for GitHub Webhooks
+    triggers {
+        githubPush()
+    }
+
+    environment {
+        DOCKER_USER  = 'jnyanesh' 
+        IMAGE_NAME   = 'ci-cd-pipeline-app'
+        DOCKER_CREDS  = 'docker-hub-credentials' 
+    }
+
     stages {
         stage('Checkout') {
             steps {
-                git scm
+                // 'scm' ensures it pulls the exact commit that triggered the webhook
+                checkout scm
             }
         }
+
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t my-flask-app:${env.BUILD_ID} .'
+                script {
+                    echo "Building version: ${env.BUILD_ID}"
+                    sh "docker build -t ${DOCKER_USER}/${IMAGE_NAME}:${env.BUILD_ID} ."
+                    sh "docker tag ${DOCKER_USER}/${IMAGE_NAME}:${env.BUILD_ID} ${DOCKER_USER}/${IMAGE_NAME}:latest"
+                }
             }
         }
+
         stage('Test') {
             steps {
-                // Example: simple check to see if the container starts
-                sh 'docker run -d --name test-container -p 5000:5000 my-flask-app:${env.BUILD_ID}'
-                sh 'sleep 5 && curl http://localhost:5000'
-                sh 'docker rm -f test-container'
+                script {
+                    sh "docker run -d --name test-container -p 5000:5000 ${DOCKER_USER}/${IMAGE_NAME}:${env.BUILD_ID}"
+                    try {
+                        // Health check: wait for Flask to boot
+                        sh 'sleep 5 && curl http://localhost:5000'
+                    } finally {
+                        sh 'docker rm -f test-container'
+                    }
+                }
             }
         }
-        stage('Push to Registry') {
+
+        stage('Push to Docker Hub') {
             steps {
-                // You would typically login and push to Docker Hub here
-                echo 'Pushing image to repository...'
+                // This is the "Automated Push" part
+                withCredentials([usernamePassword(credentialsId: "${DOCKER_CREDS}", passwordVariable: 'DOCKER_PASS', usernameVariable: 'DOCKER_USER_ENV')]) {
+                    sh "echo \$DOCKER_PASS | docker login -u \$DOCKER_USER_ENV --password-stdin"
+                    sh "docker push ${DOCKER_USER}/${IMAGE_NAME}:${env.BUILD_ID}"
+                    sh "docker push ${DOCKER_USER}/${IMAGE_NAME}:latest"
+                }
             }
+        }
+    }
+
+    post {
+        always {
+            // Housekeeping: remove local images so the lab machine doesn't get full
+            sh "docker rmi -f ${DOCKER_USER}/${IMAGE_NAME}:${env.BUILD_ID} ${DOCKER_USER}/${IMAGE_NAME}:latest || true"
         }
     }
 }
